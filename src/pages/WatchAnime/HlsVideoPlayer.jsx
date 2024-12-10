@@ -1,27 +1,39 @@
 import React, { useEffect, useRef } from "react";
 import Hls from "hls.js";
+
 export default function HlsVideoPlayer({ url, headers }) {
   const videoRef = useRef(null);
+
   useEffect(() => {
-    // Check if HLS.js is supported in the current browser
     if (Hls.isSupported()) {
+      const proxyUrl = `https://goodproxy.goodproxy.workers.dev/fetch?url=${encodeURIComponent(
+        url
+      )}`;
       const hls = new Hls();
-      hls.loadSource(url);
+      hls.loadSource(proxyUrl);
       hls.attachMedia(videoRef.current);
 
-      // Listen for HLS events (optional)
+      hls.config.xhrSetup = function (xhr) {
+        if (headers) {
+          Object.entries(headers).forEach(([key, value]) => {
+            xhr.setRequestHeader(key, value);
+          });
+        }
+      };
 
-      // Clean up when the component unmounts
+      hls.on(Hls.Events.ERROR, (event, data) => {
+        console.error("HLS Error:", data);
+      });
+
       return () => {
         hls.destroy();
       };
     } else {
-      // Neither HLS.js nor native HLS support is available
       console.error("HLS is not supported in this browser.");
     }
-  }, [url]);
-  // full-screnn added
-    const toggleFullScreen = () => {
+  }, [url, headers]);
+
+  const toggleFullScreen = () => {
     if (!document.fullscreenElement) {
       videoRef.current.requestFullscreen().catch((err) => {
         console.error("Error attempting to enable full-screen mode:", err);
@@ -32,20 +44,22 @@ export default function HlsVideoPlayer({ url, headers }) {
   };
 
   useEffect(() => {
+    const handleKeyPress = (event) => {
+      if (event.key === "f" || event.key === "F") {
+        toggleFullScreen();
+      }
+    };
     document.addEventListener("keydown", handleKeyPress);
     return () => {
       document.removeEventListener("keydown", handleKeyPress);
     };
   }, []);
 
-  const handleKeyPress = (event) => {
-    if (event.key === "f" || event.key === "F") {
-      toggleFullScreen();
-    }
-  };
   return (
     <div>
-      <video ref={videoRef} controls />
+      <video ref={videoRef} controls className="video-player">
+        Your browser does not support HLS video. Please try a different browser.
+      </video>
     </div>
   );
 }
